@@ -1,5 +1,7 @@
 const ELEVEN_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+const DEFAULT_MODEL_ID = "eleven_multilingual_v2";
+
 /**
  * @returns {Promise<{ audio: HTMLAudioElement | null, error: string | null }>}
  */
@@ -15,7 +17,7 @@ export async function speakText(text, apiKey, voiceId, slow = false) {
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_monolingual_v1",
+        model_id: DEFAULT_MODEL_ID,
         voice_settings: {
           stability: 0.75,
           similarity_boost: 0.75,

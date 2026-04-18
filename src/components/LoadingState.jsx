@@ -13,13 +13,13 @@ export default function LoadingState() {
   useEffect(() => {
     const interval = setInterval(() => {
       setMsgIndex((i) => (i + 1) % MESSAGES.length);
-    }, 2000);
+    }, 2800);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="loading-state" role="status" aria-live="polite">
-      <div className="loading-state__orbit" aria-hidden="true" />
+      <div className="loading-state__pulse" aria-hidden="true" />
       <p className="loading-state__text">{MESSAGES[msgIndex]}</p>
     </div>
   );

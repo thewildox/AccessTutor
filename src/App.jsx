@@ -6,6 +6,11 @@ import AccessibilityBar from "./components/AccessibilityBar";
 import LoadingState from "./components/LoadingState";
 import { simplifyText } from "./services/geminiService";
 import {
+  MAX_ATTACHMENT_COUNT,
+  validateAttachmentFile,
+  fileToInlineAttachment,
+} from "./utils/inlineAttachments";
+import {
   readSavedSession,
   writeSavedSession,
   clearSavedSession,
@@ -29,6 +34,7 @@ export default function App() {
   const [geminiKey, setGeminiKey] = useState(remembered?.geminiKey || "");
   const [elevenKey, setElevenKey] = useState(remembered?.elevenKey || "");
   const [voiceId, setVoiceId] = useState(remembered?.voiceId || "21m00Tcm4TlvDq8ikWAM");
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [rememberKeys, setRememberKeys] = useState(
     () => typeof localStorage !== "undefined" && localStorage.getItem(REMEMBER_KEYS_FLAG) === "1"
   );
@@ -79,16 +85,36 @@ export default function App() {
       setError("Please enter your Gemini API key first.");
       return;
     }
-    const trimmed = inputText.slice(0, MAX_INPUT_CHARS);
+    const trimmedRaw = inputText.trim().slice(0, MAX_INPUT_CHARS);
     if (inputText.length > MAX_INPUT_CHARS) {
-      setInputText(trimmed);
+      setInputText(trimmedRaw);
+    }
+    if (!trimmedRaw && attachedFiles.length === 0) {
+      setError("Paste some text or add at least one image or PDF.");
+      return;
+    }
+    if (attachedFiles.length > MAX_ATTACHMENT_COUNT) {
+      setError(`You can attach up to ${MAX_ATTACHMENT_COUNT} files. Remove some and try again.`);
+      return;
+    }
+    for (const file of attachedFiles) {
+      const attErr = validateAttachmentFile(file);
+      if (attErr) {
+        setError(attErr);
+        return;
+      }
     }
     setError(null);
     setIsLoading(true);
     setCurrentChunkIndex(0);
     try {
-      const data = await simplifyText(trimmed, geminiKey);
+      const inlineParts = [];
+      for (const file of attachedFiles) {
+        inlineParts.push(await fileToInlineAttachment(file));
+      }
+      const data = await simplifyText(trimmedRaw, geminiKey, inlineParts);
       setLessonData(data);
+      setAttachedFiles([]);
       setView("lesson");
     } catch (e) {
       setError("Something went wrong: " + e.message + ". Check your API key and try again.");
@@ -115,6 +141,8 @@ export default function App() {
           <HomeScreen
             inputText={inputText}
             setInputText={setInputText}
+            attachedFiles={attachedFiles}
+            setAttachedFiles={setAttachedFiles}
             onStart={handleStart}
             error={error}
             geminiKey={geminiKey}

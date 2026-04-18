@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { speakText } from "../services/elevenLabsService";
 
 const SCORE_MESSAGES = {
@@ -8,8 +8,12 @@ const SCORE_MESSAGES = {
   0: "No worries at all. Learning takes time. Let's try again.",
 };
 
-function optionClass(opt, q, selectedAnswer, isCorrect) {
-  if (!selectedAnswer) return "quiz-option";
+function optionClass(opt, q, selectedAnswer, isCorrect, keyboardFocus) {
+  let base = "quiz-option";
+  if (!selectedAnswer) {
+    if (keyboardFocus) base += " quiz-option--keyboard-focus";
+    return base;
+  }
   if (opt === q.correct) return "quiz-option quiz-option--correct";
   if (opt === selectedAnswer && !isCorrect) return "quiz-option quiz-option--wrong";
   return "quiz-option quiz-option--dim";
@@ -23,9 +27,21 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [ttsError, setTtsError] = useState(null);
+  const [focusedIdx, setFocusedIdx] = useState(0);
+  const [optionsHaveFocus, setOptionsHaveFocus] = useState(false);
+
+  const optionRefs = useRef([]);
+  const nextBtnRef = useRef(null);
+  const handleSelectRef = useRef(null);
+  const optsRef = useRef([]);
+  const focusedIdxRef = useRef(0);
 
   const q = questions[currentQ];
   const pct = ((currentQ + 1) / questions.length) * 100;
+  const opts = q?.options || [];
+
+  optsRef.current = opts;
+  focusedIdxRef.current = focusedIdx;
 
   const handleSelect = async (opt) => {
     if (selectedAnswer) return;
@@ -40,6 +56,52 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
       if (error) setTtsError(error);
     }
   };
+
+  handleSelectRef.current = handleSelect;
+
+  useLayoutEffect(() => {
+    setFocusedIdx(0);
+  }, [currentQ]);
+
+  useLayoutEffect(() => {
+    if (done || selectedAnswer || !opts.length) return;
+    optionRefs.current[focusedIdx]?.focus({ preventScroll: true });
+  }, [focusedIdx, selectedAnswer, done, opts.length, currentQ]);
+
+  useLayoutEffect(() => {
+    if (!selectedAnswer || done) return;
+    nextBtnRef.current?.focus({ preventScroll: true });
+  }, [selectedAnswer, done, currentQ]);
+
+  useEffect(() => {
+    if (done || !q || selectedAnswer || !opts.length) return;
+
+    const onKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (!t?.closest?.(".quiz-options")) return;
+
+      const { key } = e;
+      if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Enter", " "].includes(key)) return;
+
+      e.preventDefault();
+      const list = optsRef.current;
+      const n = list.length;
+      if (!n) return;
+
+      if (key === "ArrowDown" || key === "ArrowRight") {
+        setFocusedIdx((i) => (i + 1) % n);
+      } else if (key === "ArrowUp" || key === "ArrowLeft") {
+        setFocusedIdx((i) => (i - 1 + n) % n);
+      } else if (key === "Enter" || key === " ") {
+        handleSelectRef.current?.(list[focusedIdxRef.current]);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [done, q, selectedAnswer, opts.length, currentQ]);
 
   const handleNext = () => {
     setTtsError(null);
@@ -59,6 +121,7 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
     setScore(0);
     setDone(false);
     setTtsError(null);
+    setFocusedIdx(0);
   };
 
   if (done) {
@@ -94,15 +157,42 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
         <span className="progress-label">Question {currentQ + 1} of {questions.length}</span>
       </div>
 
-      <p className="quiz-question">{q.question}</p>
+      <p id={`quiz-q-${currentQ}`} className="quiz-question">{q.question}</p>
 
-      <div className="quiz-options">
-        {(q.options || []).map((opt) => (
+      <p className="visually-hidden">
+        Use arrow keys to move between answers. Press Enter or Space to choose.
+      </p>
+
+      <div
+        className="quiz-options"
+        role="radiogroup"
+        aria-labelledby={`quiz-q-${currentQ}`}
+        onFocusCapture={() => setOptionsHaveFocus(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setOptionsHaveFocus(false);
+        }}
+      >
+        {(q.options || []).map((opt, i) => (
           <button
             key={opt}
             type="button"
-            className={optionClass(opt, q, selectedAnswer, isCorrect)}
+            role="radio"
+            aria-checked={!!selectedAnswer && opt === selectedAnswer}
+            tabIndex={!selectedAnswer && i === focusedIdx ? 0 : -1}
+            ref={(el) => {
+              optionRefs.current[i] = el;
+            }}
+            className={optionClass(
+              opt,
+              q,
+              selectedAnswer,
+              isCorrect,
+              !selectedAnswer && optionsHaveFocus && i === focusedIdx,
+            )}
             onClick={() => handleSelect(opt)}
+            onFocus={() => {
+              if (!selectedAnswer) setFocusedIdx(i);
+            }}
             disabled={!!selectedAnswer}
           >
             {opt}
@@ -142,7 +232,7 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
               Try Again
             </button>
           )}
-          <button type="button" className="btn btn-primary" onClick={handleNext}>
+          <button ref={nextBtnRef} type="button" className="btn btn-primary" onClick={handleNext}>
             {currentQ < questions.length - 1 ? "Next Question →" : "See Results"}
           </button>
         </div>

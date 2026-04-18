@@ -1,9 +1,17 @@
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-function buildPrompt(inputText) {
-  return `You are a learning assistant for a neurodivergent child aged 8-14 with ADHD or dyslexia.
+/**
+ * @param {string} inputText
+ * @param {boolean} hasAttachments
+ */
+function buildPrompt(inputText, hasAttachments) {
+  const sourceNote = hasAttachments
+    ? `The learner may have pasted text below and/or attached file(s) (photos of homework, screenshots, or a PDF). Read every attachment carefully (all readable pages of a PDF). Combine what you see in the file(s) with any pasted text. If pasted text is empty, use only the attachment(s).`
+    : "";
 
+  return `You are a learning assistant for a neurodivergent child aged 8-14 with ADHD or dyslexia.
+${sourceNote ? `${sourceNote}\n\n` : ""}
 Rewrite the following school text using:
 - Very short sentences (max 10-12 words each)
 - One idea per sentence
@@ -47,12 +55,24 @@ School text to rewrite:
 ${inputText}`;
 }
 
-export async function simplifyText(inputText, apiKey) {
+/**
+ * @param {string} inputText
+ * @param {string} apiKey
+ * @param {{ mimeType: string, data: string }[]} [attachments]
+ */
+export async function simplifyText(inputText, apiKey, attachments = []) {
+  const hasAttachments = attachments.length > 0;
+  const textPart = { text: buildPrompt(inputText, hasAttachments) };
+  const inlineParts = attachments.map((a) => ({
+    inlineData: { mimeType: a.mimeType, data: a.data },
+  }));
+  const parts = [...inlineParts, textPart];
+
   const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: buildPrompt(inputText) }] }],
+      contents: [{ parts }],
     }),
   });
 
