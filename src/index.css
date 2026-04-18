@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ── CSS Variables ── */
+:root {
+  --bg: #FFFDF7;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F5FF;
+  --primary: #6C63FF;
+  --primary-light: #EEF0FF;
+  --primary-hover: #5A52E0;
+  --success: #4CAF50;
+  --success-light: #E8F5E9;
+  --wrong: #FF6B6B;
+  --wrong-light: #FFF0F0;
+  --text: #2D2D2D;
+  --muted: #7A7A8C;
+  --border: #E8E4F0;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --font-main: 'Nunito Sans', sans-serif;
+  --font-display: 'Nunito', sans-serif;
+}
+
+/* ── Accessibility Overrides ── */
+.high-contrast {
+  --bg: #0D0D1A;
+  --surface: #1A1A2E;
+  --surface-alt: #1E1E35;
+  --text: #F0F0FF;
+  --muted: #9999BB;
+  --border: #333355;
+  --primary-light: #1A1A3A;
+}
+
+.large-text { font-size: 1.2rem; }
+.large-text .chunk-text { font-size: 1.25rem; }
+.large-text .quiz-question { font-size: 1.3rem; }
+
+.dyslexic-font,
+.dyslexic-font * {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', cursive !important;
+  letter-spacing: 0.05em;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-main);
+  line-height: 1.7;
+  transition: background 0.3s, color 0.3s;
+  min-height: 100vh;
+}
+
+.app-root { min-height: 100vh; }
+
+.app-container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 6rem;
+}
+
+/* ── Typography ── */
+h1, h2, h3 { font-family: var(--font-display); font-weight: 800; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-height: 48px;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-listen {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+.btn-listen:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-listen.playing {
+  animation: pulse-btn 1.2s ease-in-out infinite;
+}
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) {
+  background: #3d9140;
+  transform: translateY(-1px);
+}
+
+.btn-full { width: 100%; }
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+
+.card-purple {
+  background: var(--surface-alt);
+  border: 1.5px solid var(--primary-light);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+/* ── Progress Bar ── */
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.progress-bar {
+  flex: 1;
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.progress-label {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ── Error Box ── */
+.error-box {
+  background: var(--wrong-light);
+  border: 1.5px solid var(--wrong);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  color: #c62828;
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+  line-height: 1.6;
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-btn {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+.fade-up { animation: fadeUp 0.3s ease both; }
