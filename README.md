@@ -19,11 +19,13 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ## API Keys
 
-Enter your keys directly in the app UI — they stay in your browser only.
+Enter your keys directly in the app UI. Optional **“Remember keys on this device”** saves them in `localStorage` for faster demos — **do not use on shared lab machines**; turn it off before handing the laptop to someone else.
 
 - **Gemini API Key** — [Get one here](https://aistudio.google.com/app/apikey)
-- **ElevenLabs API Key** — [Get one here](https://elevenlabs.io) (optional, for voice)
+- **ElevenLabs API Key** — [Get one here](https://elevenlabs.io)
 - **Voice ID** — Default is Rachel (`21m00Tcm4TlvDq8ikWAM`). Change to any ElevenLabs voice ID.
+
+While you are on a **lesson or quiz**, progress is saved to `sessionStorage` so a **browser refresh** during judging does not wipe the demo. Going **Back** from the lesson to home clears that saved session.
 
 ---
 
@@ -43,6 +45,8 @@ src/
   services/
     geminiService.js             ← Gemini API call + prompt
     elevenLabsService.js         ← ElevenLabs TTS + blob playback
+  lib/
+    hackathonStorage.js          ← session resume + optional remembered keys
 ```
 
 ---
@@ -80,13 +84,12 @@ Edit the `TOGGLES` array in `src/components/AccessibilityBar.jsx`
 
 ## Demo Script
 
-1. Paste a dense 5th-grade science paragraph
+1. Paste a dense 5th-grade science paragraph (or **Upload PDF**)
 2. Click **Start Learning**
-3. Show the simplified chunks side by side with the original
-4. Click **Listen** — let the voice read the first chunk
-5. Toggle **Focus Mode** to show one step at a time
-6. Click **Quiz Me** — answer a question wrong on purpose
-7. Show the gentle "Not quite — let's look at that together" response + voice hint
+3. Show simplified chunks; toggle **Focus** to show one step at a time
+4. Click **Listen** — if voice fails, the **error message** explains why (key, quota, browser block)
+5. Click **Quiz Me** — miss one on purpose to show feedback + optional spoken hint
+6. **Backup:** record a 30s screen capture in case Wi‑Fi or billing fails live
 
 **Opening line:** *"Some kids aren't blocked by intelligence. They're blocked by format. AccessTutor changes the format."*
 

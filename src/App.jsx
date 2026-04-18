@@ -1,22 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import HomeScreen from "./components/HomeScreen";
 import LessonScreen from "./components/LessonScreen";
 import QuizScreen from "./components/QuizScreen";
 import AccessibilityBar from "./components/AccessibilityBar";
 import LoadingState from "./components/LoadingState";
 import { simplifyText } from "./services/geminiService";
+import {
+  readSavedSession,
+  writeSavedSession,
+  clearSavedSession,
+  loadRememberedKeys,
+  saveRememberedKeys,
+  clearRememberedKeys,
+  REMEMBER_KEYS_FLAG,
+} from "./lib/hackathonStorage";
 import "./index.css";
 
+const MAX_INPUT_CHARS = 32000;
+
 export default function App() {
+  const remembered = loadRememberedKeys();
   const [view, setView] = useState("home");
   const [inputText, setInputText] = useState("");
   const [lessonData, setLessonData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const [error, setError] = useState(null);
-  const [geminiKey, setGeminiKey] = useState("");
-  const [elevenKey, setElevenKey] = useState("");
-  const [voiceId, setVoiceId] = useState("21m00Tcm4TlvDq8ikWAM");
+  const [geminiKey, setGeminiKey] = useState(remembered?.geminiKey || "");
+  const [elevenKey, setElevenKey] = useState(remembered?.elevenKey || "");
+  const [voiceId, setVoiceId] = useState(remembered?.voiceId || "21m00Tcm4TlvDq8ikWAM");
+  const [rememberKeys, setRememberKeys] = useState(
+    () => typeof localStorage !== "undefined" && localStorage.getItem(REMEMBER_KEYS_FLAG) === "1"
+  );
   const [a11y, setA11y] = useState({
     largeText: false,
     focusMode: true,
@@ -25,8 +40,38 @@ export default function App() {
     dyslexicFont: false,
   });
 
+  useEffect(() => {
+    const saved = readSavedSession();
+    if (!saved) return;
+    if (saved.view === "lesson" || saved.view === "quiz") {
+      setLessonData(saved.lessonData);
+      setView(saved.view);
+      setCurrentChunkIndex(saved.currentChunkIndex ?? 0);
+      if (saved.inputText) setInputText(saved.inputText);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view !== "lesson" && view !== "quiz") return;
+    if (!lessonData?.chunks?.length) return;
+    writeSavedSession({ view, lessonData, currentChunkIndex, inputText });
+  }, [view, lessonData, currentChunkIndex, inputText]);
+
+  useEffect(() => {
+    if (!rememberKeys) {
+      clearRememberedKeys();
+      return;
+    }
+    saveRememberedKeys({ geminiKey, elevenKey, voiceId });
+  }, [rememberKeys, geminiKey, elevenKey, voiceId]);
+
   const toggleA11y = (key) => {
     setA11y((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const leaveLessonToHome = () => {
+    clearSavedSession();
+    setView("home");
   };
 
   const handleStart = async () => {
@@ -34,11 +79,15 @@ export default function App() {
       setError("Please enter your Gemini API key first.");
       return;
     }
+    const trimmed = inputText.slice(0, MAX_INPUT_CHARS);
+    if (inputText.length > MAX_INPUT_CHARS) {
+      setInputText(trimmed);
+    }
     setError(null);
     setIsLoading(true);
     setCurrentChunkIndex(0);
     try {
-      const data = await simplifyText(inputText, geminiKey);
+      const data = await simplifyText(trimmed, geminiKey);
       setLessonData(data);
       setView("lesson");
     } catch (e) {
@@ -74,6 +123,9 @@ export default function App() {
             setElevenKey={setElevenKey}
             voiceId={voiceId}
             setVoiceId={setVoiceId}
+            rememberKeys={rememberKeys}
+            setRememberKeys={setRememberKeys}
+            longInputWarning={inputText.length > 28000}
           />
         ) : view === "lesson" ? (
           <LessonScreen
@@ -81,7 +133,7 @@ export default function App() {
             currentChunkIndex={currentChunkIndex}
             setCurrentChunkIndex={setCurrentChunkIndex}
             onQuiz={() => setView("quiz")}
-            onBack={() => setView("home")}
+            onBack={leaveLessonToHome}
             a11y={a11y}
             elevenKey={elevenKey}
             voiceId={voiceId}

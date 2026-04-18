@@ -6,6 +6,7 @@ export default function LessonScreen({
   onQuiz, onBack, a11y, elevenKey, voiceId,
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [ttsError, setTtsError] = useState(null);
   const chunks = lessonData?.chunks || [];
   const total = chunks.length;
   const idx = currentChunkIndex;
@@ -14,8 +15,10 @@ export default function LessonScreen({
   const handleListen = async () => {
     if (isPlaying) return;
     const text = a11y.focusMode ? chunks[idx] : chunks.join(" ");
+    setTtsError(null);
     setIsPlaying(true);
-    const audio = await speakText(text, elevenKey, voiceId, a11y.slowAudio);
+    const { audio, error } = await speakText(text, elevenKey, voiceId, a11y.slowAudio);
+    if (error) setTtsError(error);
     if (audio) {
       audio.onended = () => setIsPlaying(false);
     } else {
@@ -25,16 +28,12 @@ export default function LessonScreen({
 
   return (
     <div className="fade-up">
-      {/* Back */}
-      <button className="btn btn-ghost" style={{ padding: "8px 14px", fontSize: "0.85rem", marginBottom: "1rem" }} onClick={onBack}>
+      <button type="button" className="btn btn-ghost btn--compact mb-nav" onClick={onBack}>
         ← Back
       </button>
 
-      {/* Title + Progress */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.5rem", color: "var(--text)", marginBottom: "6px" }}>
-          {lessonData.title || "Your Lesson"}
-        </h1>
+      <div className="lesson-header">
+        <h1 className="lesson-title">{lessonData.title || "Your Lesson"}</h1>
         <div className="progress-wrap">
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -43,7 +42,6 @@ export default function LessonScreen({
         </div>
       </div>
 
-      {/* Chunks */}
       {a11y.focusMode ? (
         <FocusChunk chunk={chunks[idx]} index={idx} />
       ) : (
@@ -52,41 +50,39 @@ export default function LessonScreen({
         ))
       )}
 
-      {/* Listen Button */}
       <div className="btn-row">
         <button
+          type="button"
           className={`btn btn-listen ${isPlaying ? "playing" : ""}`}
           onClick={handleListen}
           disabled={isPlaying || !elevenKey}
           title={!elevenKey ? "Add your ElevenLabs key to enable voice" : ""}
         >
-          {isPlaying ? "⏸ Playing..." : "🔊 Listen"}
+          {isPlaying ? "Playing…" : "Listen"}
         </button>
         {!elevenKey && (
-          <span style={{ fontSize: "0.8rem", color: "var(--muted)", alignSelf: "center" }}>
-            Add ElevenLabs key for voice
-          </span>
+          <span className="inline-hint">Add ElevenLabs key for voice</span>
         )}
       </div>
 
-      {/* Focus Mode Navigation */}
+      {ttsError && (
+        <div className="error-box" role="alert">
+          {ttsError}
+        </div>
+      )}
+
       {a11y.focusMode && (
         <div className="btn-row" style={{ marginTop: "8px" }}>
-          <button className="btn btn-ghost" onClick={() => setCurrentChunkIndex(idx - 1)} disabled={idx === 0}>
+          <button type="button" className="btn btn-ghost" onClick={() => setCurrentChunkIndex(idx - 1)} disabled={idx === 0}>
             ← Back
           </button>
-          <button className="btn btn-secondary" onClick={() => setCurrentChunkIndex(idx + 1)} disabled={idx === total - 1}>
+          <button type="button" className="btn btn-secondary" onClick={() => setCurrentChunkIndex(idx + 1)} disabled={idx === total - 1}>
             Next →
           </button>
         </div>
       )}
 
-      {/* Quiz CTA */}
-      <button
-        className="btn btn-success btn-full"
-        style={{ marginTop: "1.25rem" }}
-        onClick={onQuiz}
-      >
+      <button type="button" className="btn btn-success btn-full mt-lg" onClick={onQuiz}>
         Quiz Me →
       </button>
     </div>
@@ -95,32 +91,18 @@ export default function LessonScreen({
 
 function FocusChunk({ chunk, index }) {
   return (
-    <div className="card-purple fade-up" style={{ marginBottom: "1rem" }}>
-      <div style={{
-        fontSize: "11px", fontWeight: 700, color: "var(--primary)",
-        textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px",
-      }}>
-        Step {index + 1}
-      </div>
-      <p className="chunk-text" style={{ fontSize: "1.1rem", lineHeight: 1.9, color: "var(--text)" }}>
-        {chunk}
-      </p>
-    </div>
+    <article className="card-purple card-purple--focus fade-up">
+      <div className="step-badge">Step {index + 1}</div>
+      <p className="chunk-text">{chunk}</p>
+    </article>
   );
 }
 
 function AllChunk({ chunk, index }) {
   return (
-    <div className="card-purple" style={{ marginBottom: "10px" }}>
-      <div style={{
-        fontSize: "11px", fontWeight: 700, color: "var(--primary)",
-        textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px",
-      }}>
-        Step {index + 1}
-      </div>
-      <p className="chunk-text" style={{ fontSize: "1rem", lineHeight: 1.8, color: "var(--text)" }}>
-        {chunk}
-      </p>
-    </div>
+    <article className="card-purple">
+      <div className="step-badge">Step {index + 1}</div>
+      <p className="chunk-text chunk-text--all">{chunk}</p>
+    </article>
   );
 }

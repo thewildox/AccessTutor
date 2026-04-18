@@ -9,6 +9,9 @@ export default function HomeScreen({
   geminiKey, setGeminiKey,
   elevenKey, setElevenKey,
   voiceId, setVoiceId,
+  rememberKeys = false,
+  setRememberKeys,
+  longInputWarning = false,
 }) {
   const [showKeys, setShowKeys] = useState(!geminiKey);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -43,42 +46,24 @@ export default function HomeScreen({
 
   return (
     <div className="fade-up">
-      {/* Hero */}
-      <div style={{ textAlign: "center", padding: "2rem 0 1.75rem" }}>
-        <div style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "2.4rem",
-          fontWeight: 800,
-          color: "var(--primary)",
-          letterSpacing: "-0.5px",
-          lineHeight: 1.1,
-        }}>
-          AccessTutor
-        </div>
-        <p style={{ color: "var(--muted)", marginTop: "8px", fontSize: "1rem" }}>
-          Learning, redesigned for focus.
-        </p>
-      </div>
+      <header className="hero">
+        <h1 className="hero__logo">AccessTutor</h1>
+        <p className="hero__tagline">Learning, redesigned for focus.</p>
+      </header>
 
-      {/* API Keys Panel */}
-      <div className="card" style={{ marginBottom: "1.25rem" }}>
+      <div className="card card--keys">
         <button
+          type="button"
+          className="collapsible-toggle"
           onClick={() => setShowKeys(!showKeys)}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: 0,
-            fontFamily: "var(--font-display)", fontWeight: 700,
-            fontSize: "0.85rem", color: "var(--muted)", letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
+          aria-expanded={showKeys}
         >
           <span>API Keys</span>
-          <span>{showKeys ? "▲ Hide" : "▼ Show"}</span>
+          <span className="collapsible-toggle__hint" aria-hidden="true">{showKeys ? "Hide" : "Show"}</span>
         </button>
 
         {showKeys && (
-          <div style={{ marginTop: "1rem" }}>
+          <div className="collapsible-body">
             <KeyField
               label="Gemini Key (required)"
               value={geminiKey}
@@ -98,8 +83,16 @@ export default function HomeScreen({
               placeholder="21m00Tcm4TlvDq8ikWAM"
               type="text"
             />
-            <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "8px", lineHeight: 1.5 }}>
-              Keys stay in your browser only. Never stored or shared.
+            <label className="remember-keys">
+              <input
+                type="checkbox"
+                checked={rememberKeys}
+                onChange={(e) => setRememberKeys(e.target.checked)}
+              />
+              <span>Remember keys on this device (demo only — do not use on shared computers)</span>
+            </label>
+            <p className="hint-text" style={{ marginTop: "0.35rem" }}>
+              Keys never leave your network except to Google Gemini and ElevenLabs when you run the app.
             </p>
           </div>
         )}
@@ -109,51 +102,45 @@ export default function HomeScreen({
         ref={pdfInputRef}
         type="file"
         accept="application/pdf,.pdf"
-        style={{ display: "none" }}
+        className="visually-hidden"
+        aria-label="Upload a PDF file"
         onChange={handlePdfChange}
       />
 
-      {/* Text Input */}
+      <label className="visually-hidden" htmlFor="lesson-input">
+        Homework or school text
+      </label>
       <textarea
+        id="lesson-input"
+        className="input-textarea"
         value={inputText}
         onChange={(e) => setInputText(e.target.value)}
         placeholder="Paste homework, a worksheet, or any school text here..."
         rows={6}
-        style={{
-          width: "100%",
-          border: "2px dashed var(--border)",
-          borderRadius: "var(--radius)",
-          padding: "1rem 1.25rem",
-          fontSize: "1rem",
-          fontFamily: "var(--font-main)",
-          color: "var(--text)",
-          background: "var(--surface)",
-          resize: "vertical",
-          outline: "none",
-          lineHeight: 1.7,
-          transition: "border-color 0.2s",
-        }}
-        onFocus={(e) => (e.target.style.borderColor = "var(--primary)", e.target.style.borderStyle = "solid")}
-        onBlur={(e) => (e.target.style.borderColor = "var(--border)", e.target.style.borderStyle = "dashed")}
       />
 
       <button
         type="button"
-        className="btn btn-secondary btn-full"
-        style={{ marginTop: "10px" }}
+        className="btn btn-secondary btn-full mt-md"
         onClick={handlePdfPick}
         disabled={pdfLoading}
       >
-        {pdfLoading ? "Reading PDF…" : "📄 Upload PDF"}
+        {pdfLoading ? "Reading PDF…" : "Upload PDF"}
       </button>
-      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "6px", lineHeight: 1.45 }}>
+      <p className="hint-text">
         Works with text-based PDFs. Scanned worksheets (photos) need text pasted manually.
       </p>
 
-      {/* Buttons */}
+      {longInputWarning && (
+        <p className="hint-text" style={{ color: "var(--wrong)", fontWeight: 600 }}>
+          Very long text will be trimmed to 32,000 characters for a reliable demo.
+        </p>
+      )}
+
       <button
-        className="btn btn-primary btn-full"
-        style={{ marginTop: "0.75rem", fontSize: "1.05rem" }}
+        type="button"
+        className="btn btn-primary btn-full mt-lg"
+        style={{ fontSize: "1.05rem" }}
         onClick={onStart}
         disabled={!inputText.trim()}
       >
@@ -161,8 +148,8 @@ export default function HomeScreen({
       </button>
 
       <button
-        className="btn btn-ghost btn-full"
-        style={{ marginTop: "8px" }}
+        type="button"
+        className="btn btn-ghost btn-full mt-sm"
         onClick={() => setInputText(SAMPLE_TEXT)}
       >
         Try a sample paragraph
@@ -175,27 +162,20 @@ export default function HomeScreen({
 }
 
 function KeyField({ label, value, onChange, placeholder, type = "password" }) {
+  const id = `key-${label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}`;
   return (
-    <div style={{ marginBottom: "10px" }}>
-      <label style={{
-        display: "block", fontSize: "0.8rem",
-        color: "var(--muted)", marginBottom: "4px", fontWeight: 600,
-      }}>
+    <div className="field-group">
+      <label className="field-label" htmlFor={id}>
         {label}
       </label>
       <input
+        id={id}
+        className="field-input"
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: "100%", padding: "9px 12px",
-          border: "1.5px solid var(--border)",
-          borderRadius: "var(--radius-xs)",
-          fontSize: "0.9rem", fontFamily: "var(--font-main)",
-          background: "var(--bg)", color: "var(--text)",
-          outline: "none",
-        }}
+        autoComplete="off"
       />
     </div>
   );

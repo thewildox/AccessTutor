@@ -62,6 +62,15 @@ export async function simplifyText(inputText, apiKey) {
     throw new Error(data.error?.message || "Gemini API error");
   }
 
+  if (!data.candidates?.length) {
+    const block = data.promptFeedback?.blockReason;
+    throw new Error(
+      block
+        ? `Request was blocked (${block}). Try different or shorter text.`
+        : "No response from the model. Try shorter text or run again."
+    );
+  }
+
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   const clean = raw.replace(/```json|```/g, "").trim();
 

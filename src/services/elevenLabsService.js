@@ -1,7 +1,10 @@
 const ELEVEN_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+/**
+ * @returns {Promise<{ audio: HTMLAudioElement | null, error: string | null }>}
+ */
 export async function speakText(text, apiKey, voiceId, slow = false) {
-  if (!apiKey || !text) return;
+  if (!apiKey || !text) return { audio: null, error: null };
 
   try {
     const res = await fetch(`${ELEVEN_URL}/${voiceId}`, {
@@ -20,17 +23,34 @@ export async function speakText(text, apiKey, voiceId, slow = false) {
       }),
     });
 
-    if (!res.ok) throw new Error("ElevenLabs request failed");
+    if (!res.ok) {
+      const errText = await res.text();
+      let message = `Voice request failed (HTTP ${res.status}).`;
+      try {
+        const j = JSON.parse(errText);
+        if (j.detail?.message) message = j.detail.message;
+        else if (Array.isArray(j.detail) && j.detail[0]?.msg) message = j.detail[0].msg;
+        else if (typeof j.detail === "string") message = j.detail;
+      } catch {
+        /* keep default */
+      }
+      return { audio: null, error: message };
+    }
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     if (slow) audio.playbackRate = 0.75;
-    audio.play();
-    return audio;
+    try {
+      await audio.play();
+    } catch {
+      return {
+        audio: null,
+        error: "Playback was blocked. Click Listen again, or check browser sound permissions.",
+      };
+    }
+    return { audio, error: null };
   } catch (e) {
-    // Fail silently — never break the app over audio
-    console.warn("ElevenLabs audio failed:", e.message);
-    return null;
+    return { audio: null, error: e.message || "Could not play audio." };
   }
 }

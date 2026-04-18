@@ -18,22 +18,9 @@ export default function LoadingState() {
   }, []);
 
   return (
-    <div style={{ textAlign: "center", padding: "4rem 0" }}>
-      <div style={{
-        width: "56px", height: "56px",
-        borderRadius: "50%",
-        border: "3px solid var(--primary-light)",
-        borderTop: "3px solid var(--primary)",
-        animation: "spin 1s linear infinite",
-        margin: "0 auto 1.5rem",
-      }} />
-      <p style={{
-        color: "var(--muted)",
-        fontSize: "1rem",
-        animation: "breathe 2s ease-in-out infinite",
-      }}>
-        {MESSAGES[msgIndex]}
-      </p>
+    <div className="loading-state" role="status" aria-live="polite">
+      <div className="loading-state__orbit" aria-hidden="true" />
+      <p className="loading-state__text">{MESSAGES[msgIndex]}</p>
     </div>
   );
 }
