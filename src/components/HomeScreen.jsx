@@ -1,201 +1,227 @@
-import { useState, useRef } from "react";
-import { extractTextFromPdf } from "../utils/extractPdfText";
+import { useState, useEffect, useId } from "react";
+import {
+  MAX_ATTACHMENT_COUNT,
+  MAX_ATTACHMENT_BYTES,
+  resolveMimeType,
+} from "../utils/inlineAttachments";
 
 const SAMPLE_TEXT = `Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to produce oxygen and energy in the form of sugar. This process takes place mainly in the leaves of plants, in cells containing chlorophyll. Chlorophyll is the pigment that makes plants green, and it absorbs light energy from the sun. The plant takes in carbon dioxide through tiny pores called stomata, and water through its roots. Using the energy from light, the plant converts these into glucose and releases oxygen as a byproduct. This glucose is used by the plant for growth, repair, and reproduction.`;
 
 export default function HomeScreen({
   inputText, setInputText,
+  attachedFiles = [],
+  setAttachedFiles,
   onStart, error,
   geminiKey, setGeminiKey,
   elevenKey, setElevenKey,
   voiceId, setVoiceId,
+  rememberKeys = false,
+  setRememberKeys,
+  longInputWarning = false,
 }) {
-  const [showKeys, setShowKeys] = useState(!geminiKey);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
-  const pdfInputRef = useRef(null);
+  const [showKeys, setShowKeys] = useState(false);
+  const [filesHint, setFilesHint] = useState(null);
+  const fileInputId = useId();
 
-  const handlePdfPick = () => {
-    setUploadError(null);
-    pdfInputRef.current?.click();
+  const canStart = Boolean(inputText.trim()) || attachedFiles.length > 0;
+
+  const onPickFiles = (e) => {
+    const list = e.target.files;
+    e.target.value = "";
+    if (!list?.length || !setAttachedFiles) return;
+    const incoming = Array.from(list);
+    const merged = [...attachedFiles, ...incoming];
+    const next = merged.slice(0, MAX_ATTACHMENT_COUNT);
+    setAttachedFiles(next);
+    setFilesHint(
+      merged.length > MAX_ATTACHMENT_COUNT
+        ? `Using the first ${MAX_ATTACHMENT_COUNT} files. Remove files to add different ones.`
+        : null,
+    );
   };
 
-  const handlePdfChange = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setUploadError("Please choose a PDF file.");
-      return;
-    }
-    setUploadError(null);
-    setPdfLoading(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const text = await extractTextFromPdf(buf);
-      setInputText(text);
-    } catch (err) {
-      setUploadError(err.message || "Could not read that PDF.");
-    } finally {
-      setPdfLoading(false);
-    }
+  const removeFile = (index) => {
+    if (!setAttachedFiles) return;
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilesHint(null);
   };
 
   return (
-    <div className="fade-up">
-      {/* Hero */}
-      <div style={{ textAlign: "center", padding: "2rem 0 1.75rem" }}>
-        <div style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "2.4rem",
-          fontWeight: 800,
-          color: "var(--primary)",
-          letterSpacing: "-0.5px",
-          lineHeight: 1.1,
-        }}>
-          AccessTutor
-        </div>
-        <p style={{ color: "var(--muted)", marginTop: "8px", fontSize: "1rem" }}>
-          Learning, redesigned for focus.
-        </p>
-      </div>
+    <div className="fade-up home-stack">
+      <header className="hero">
+        <h1 className="hero__logo">AccessTutor</h1>
+        <p className="hero__tagline">Learning, redesigned for focus.</p>
+        <p className="hero__subline">For students who learn differently.</p>
+      </header>
 
-      {/* API Keys Panel */}
-      <div className="card" style={{ marginBottom: "1.25rem" }}>
+      <div className="home-settings-row">
         <button
-          onClick={() => setShowKeys(!showKeys)}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: 0,
-            fontFamily: "var(--font-display)", fontWeight: 700,
-            fontSize: "0.85rem", color: "var(--muted)", letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
+          type="button"
+          className="home-settings-trigger"
+          onClick={() => setShowKeys((v) => !v)}
+          aria-expanded={showKeys}
+          aria-controls="api-keys-panel"
         >
-          <span>API Keys</span>
-          <span>{showKeys ? "▲ Hide" : "▼ Show"}</span>
+          <span aria-hidden="true">⚙️</span> Settings
         </button>
-
-        {showKeys && (
-          <div style={{ marginTop: "1rem" }}>
-            <KeyField
-              label="Gemini Key (required)"
-              value={geminiKey}
-              onChange={setGeminiKey}
-              placeholder="AIza..."
-            />
-            <KeyField
-              label="ElevenLabs Key (for voice)"
-              value={elevenKey}
-              onChange={setElevenKey}
-              placeholder="sk_..."
-            />
-            <KeyField
-              label="Voice ID"
-              value={voiceId}
-              onChange={setVoiceId}
-              placeholder="21m00Tcm4TlvDq8ikWAM"
-              type="text"
-            />
-            <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "8px", lineHeight: 1.5 }}>
-              Keys stay in your browser only. Never stored or shared.
-            </p>
-          </div>
-        )}
       </div>
 
-      <input
-        ref={pdfInputRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        style={{ display: "none" }}
-        onChange={handlePdfChange}
-      />
+      {showKeys && (
+        <div id="api-keys-panel" className="card card--keys card--settings">
+          <KeyField
+            label="Gemini Key (required)"
+            value={geminiKey}
+            onChange={setGeminiKey}
+            placeholder="AIza..."
+          />
+          <KeyField
+            label="ElevenLabs Key (for voice)"
+            value={elevenKey}
+            onChange={setElevenKey}
+            placeholder="sk_..."
+          />
+          <KeyField
+            label="Voice ID"
+            value={voiceId}
+            onChange={setVoiceId}
+            placeholder="21m00Tcm4TlvDq8ikWAM"
+            type="text"
+          />
+          <label className="remember-keys">
+            <input
+              type="checkbox"
+              checked={rememberKeys}
+              onChange={(e) => setRememberKeys(e.target.checked)}
+            />
+            <span>Remember keys on this device (demo only — do not use on shared computers)</span>
+          </label>
+          <p className="hint-text" style={{ marginTop: "0.35rem" }}>
+            Keys are only sent to Google Gemini and ElevenLabs when you use the app. Lesson text and
+            attachments go to Gemini when you start a lesson.
+          </p>
+        </div>
+      )}
 
-      {/* Text Input */}
-      <textarea
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
-        placeholder="Paste homework, a worksheet, or any school text here..."
-        rows={6}
-        style={{
-          width: "100%",
-          border: "2px dashed var(--border)",
-          borderRadius: "var(--radius)",
-          padding: "1rem 1.25rem",
-          fontSize: "1rem",
-          fontFamily: "var(--font-main)",
-          color: "var(--text)",
-          background: "var(--surface)",
-          resize: "vertical",
-          outline: "none",
-          lineHeight: 1.7,
-          transition: "border-color 0.2s",
-        }}
-        onFocus={(e) => (e.target.style.borderColor = "var(--primary)", e.target.style.borderStyle = "solid")}
-        onBlur={(e) => (e.target.style.borderColor = "var(--border)", e.target.style.borderStyle = "dashed")}
-      />
+      <div className="home-main-block">
+        <label className="visually-hidden" htmlFor="lesson-input">
+          Homework or school text
+        </label>
+        <textarea
+          id="lesson-input"
+          className="input-textarea"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder="Paste something confusing… we'll break it down together."
+          rows={7}
+        />
+        <p className="input-helper">
+          Paste text, or add photos / a PDF of a worksheet — or both.
+        </p>
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-full"
-        style={{ marginTop: "10px" }}
-        onClick={handlePdfPick}
-        disabled={pdfLoading}
-      >
-        {pdfLoading ? "Reading PDF…" : "📄 Upload PDF"}
-      </button>
-      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "6px", lineHeight: 1.45 }}>
-        Works with text-based PDFs. Scanned worksheets (photos) need text pasted manually.
-      </p>
+        <div className="attach-row">
+          <input
+            id={fileInputId}
+            type="file"
+            className="attach-input"
+            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
+            multiple
+            onChange={onPickFiles}
+          />
+          <label htmlFor={fileInputId} className="btn btn-ghost btn-full attach-label">
+            Add images or PDF
+          </label>
+        </div>
+        <p className="hint-text">
+          Up to {MAX_ATTACHMENT_COUNT} files, {Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))} MB each.
+          PDFs and images are read by Gemini (large PDFs may be slow).
+        </p>
 
-      {/* Buttons */}
-      <button
-        className="btn btn-primary btn-full"
-        style={{ marginTop: "0.75rem", fontSize: "1.05rem" }}
-        onClick={onStart}
-        disabled={!inputText.trim()}
-      >
-        Start Learning →
-      </button>
+        {attachedFiles.length > 0 && (
+          <ul className="attach-list" aria-label="Attached files">
+            {attachedFiles.map((file, i) => (
+              <li key={`${file.name}-${i}-${file.size}`} className="attach-chip">
+                <AttachmentThumb file={file} />
+                <span className="attach-chip__name" title={file.name}>
+                  {file.name}
+                </span>
+                <button
+                  type="button"
+                  className="attach-chip__remove"
+                  onClick={() => removeFile(i)}
+                  aria-label={`Remove ${file.name}`}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {filesHint && <p className="hint-text hint-text--warn">{filesHint}</p>}
 
-      <button
-        className="btn btn-ghost btn-full"
-        style={{ marginTop: "8px" }}
-        onClick={() => setInputText(SAMPLE_TEXT)}
-      >
-        Try a sample paragraph
-      </button>
+        {longInputWarning && (
+          <p className="hint-text hint-text--warn">
+            Very long text will be trimmed to 32,000 characters for a reliable demo.
+          </p>
+        )}
 
-      {uploadError && <div className="error-box">{uploadError}</div>}
+        <button
+          type="button"
+          className="btn btn-cta btn-full"
+          onClick={onStart}
+          disabled={!canStart}
+        >
+          Start Learning →
+        </button>
+        <p className="cta-microcopy">Takes ~5 seconds</p>
+
+        <button
+          type="button"
+          className="btn btn-ghost btn-full mt-sm"
+          onClick={() => setInputText(SAMPLE_TEXT)}
+        >
+          Try a sample paragraph
+        </button>
+      </div>
+
       {error && <div className="error-box">{error}</div>}
     </div>
   );
 }
 
+function AttachmentThumb({ file }) {
+  const mime = resolveMimeType(file);
+  const isImage = mime.startsWith("image/");
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (!isImage) return;
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file, isImage]);
+
+  if (!isImage) {
+    return <span className="attach-chip__badge" aria-hidden="true">PDF</span>;
+  }
+  if (!url) return <span className="attach-chip__badge" aria-hidden="true">…</span>;
+  return <img src={url} alt="" className="attach-chip__thumb" />;
+}
+
 function KeyField({ label, value, onChange, placeholder, type = "password" }) {
+  const id = `key-${label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}`;
   return (
-    <div style={{ marginBottom: "10px" }}>
-      <label style={{
-        display: "block", fontSize: "0.8rem",
-        color: "var(--muted)", marginBottom: "4px", fontWeight: 600,
-      }}>
+    <div className="field-group">
+      <label className="field-label" htmlFor={id}>
         {label}
       </label>
       <input
+        id={id}
+        className="field-input"
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: "100%", padding: "9px 12px",
-          border: "1.5px solid var(--border)",
-          borderRadius: "var(--radius-xs)",
-          fontSize: "0.9rem", fontFamily: "var(--font-main)",
-          background: "var(--bg)", color: "var(--text)",
-          outline: "none",
-        }}
+        autoComplete="off"
       />
     </div>
   );
