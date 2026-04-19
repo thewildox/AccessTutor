@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import HomeScreen from "./components/HomeScreen";
 import LessonScreen from "./components/LessonScreen";
 import QuizScreen from "./components/QuizScreen";
@@ -26,6 +26,13 @@ import {
   DEFAULT_A11Y,
 } from "./lib/a11yStorage";
 import { debugIngest } from "./debugIngest.js";
+import {
+  loadStudyCompanionPrefs,
+  saveStudyCompanionPrefs,
+  consumeLastEngagementHintForNextLesson,
+} from "./lib/studyCompanionPrefs";
+import { loadCompanionEnabled, saveCompanionEnabled } from "./lib/companionStorage";
+import LearningCompanion from "./components/LearningCompanion";
 import "./index.css";
 
 const MAX_INPUT_CHARS = 32000;
@@ -46,12 +53,46 @@ export default function App() {
     () => typeof localStorage !== "undefined" && localStorage.getItem(REMEMBER_KEYS_FLAG) === "1"
   );
   const [a11y, setA11y] = useState(() => mergeA11yPrefs(loadA11yPrefs()));
+  const [studyPeer, setStudyPeer] = useState(() => loadStudyCompanionPrefs().studyPeer);
+  const [specialInterest, setSpecialInterest] = useState(
+    () => loadStudyCompanionPrefs().specialInterest,
+  );
+  const [companionEnabled, setCompanionEnabled] = useState(() => loadCompanionEnabled());
+  const [quizAnswerEvent, setQuizAnswerEvent] = useState(null);
   const [routeAnnouncement, setRouteAnnouncement] = useState("");
   const routeBootRef = useRef(true);
+
+  const lessonKey = useMemo(() => {
+    if (!lessonData) return "none";
+    const t = lessonData.title || "";
+    const c = lessonData.chunks?.length ?? 0;
+    const q = lessonData.questions?.length ?? 0;
+    return `${t}-${c}-${q}`;
+  }, [lessonData]);
+
+  const onQuizAnswerResult = useCallback(
+    (correct) => {
+      if (!companionEnabled) return;
+      setQuizAnswerEvent({ correct, id: Date.now() });
+    },
+    [companionEnabled],
+  );
+
+  useEffect(() => {
+    saveStudyCompanionPrefs({ studyPeer, specialInterest });
+  }, [studyPeer, specialInterest]);
 
   useEffect(() => {
     saveA11yPrefs(a11y);
   }, [a11y]);
+
+  useEffect(() => {
+    saveCompanionEnabled(companionEnabled);
+  }, [companionEnabled]);
+
+  useEffect(() => {
+    if (view === "lesson") setQuizAnswerEvent(null);
+  }, [view]);
 
   useEffect(() => {
     if (isLoading) {
@@ -146,7 +187,12 @@ export default function App() {
       for (const file of attachedFiles) {
         inlineParts.push(await fileToInlineAttachment(file));
       }
-      const data = await simplifyText(trimmedRaw, geminiKey, inlineParts);
+      const engagementHint = consumeLastEngagementHintForNextLesson();
+      const data = await simplifyText(trimmedRaw, geminiKey, inlineParts, {
+        studyPeer,
+        specialInterest,
+        engagementHint,
+      });
       // #region agent log
       debugIngest({
         runId: "post-fix",
@@ -224,6 +270,10 @@ export default function App() {
             rememberKeys={rememberKeys}
             setRememberKeys={setRememberKeys}
             longInputWarning={inputText.length > 28000}
+            studyPeer={studyPeer}
+            setStudyPeer={setStudyPeer}
+            specialInterest={specialInterest}
+            setSpecialInterest={setSpecialInterest}
           />
         ) : view === "lesson" ? (
           <LessonScreen
@@ -243,11 +293,24 @@ export default function App() {
             a11y={a11y}
             elevenKey={elevenKey}
             voiceId={voiceId}
+            onAnswerResult={onQuizAnswerResult}
           />
         )}
         </main>
       </div>
-      <AccessibilityBar a11y={a11y} toggleA11y={toggleA11y} onResetA11y={resetA11y} />
+      <LearningCompanion
+        active={companionEnabled && (view === "lesson" || view === "quiz")}
+        view={view}
+        lessonKey={lessonKey}
+        lastQuizAnswer={view === "quiz" ? quizAnswerEvent : null}
+      />
+      <AccessibilityBar
+        a11y={a11y}
+        toggleA11y={toggleA11y}
+        onResetA11y={resetA11y}
+        companionEnabled={companionEnabled}
+        onCompanionToggle={setCompanionEnabled}
+      />
     </div>
   );
 }

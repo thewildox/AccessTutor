@@ -4,10 +4,26 @@ const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 /**
- * @param {string} inputText
- * @param {boolean} hasAttachments
+ * @param {{
+ *   studyPeer?: boolean;
+ *   specialInterest?: string;
+ *   engagementHint?: string;
+ * }} [persona]
  */
-function buildPrompt(inputText, hasAttachments) {
+function buildPrompt(inputText, hasAttachments, persona = {}) {
+  const { studyPeer, specialInterest, engagementHint } = persona;
+  const peerBlock = studyPeer
+    ? `Role: You are a study peer sitting beside the learner — not a teacher. Use "we" and "us" ("we can read this part together"). Keep a calm, focused model of attention. Avoid lecturing or testing tone.\n\n`
+    : "";
+  const interestBlock =
+    specialInterest && String(specialInterest).trim()
+      ? `Use the learner’s special interest only as friendly analogies or metaphors to clarify ideas (do not replace the school content): "${String(specialInterest).trim().slice(0, 180)}".\n\n`
+      : "";
+  const engagementBlock =
+    engagementHint && String(engagementHint).trim()
+      ? `Session note (from local focus hints, not video): ${String(engagementHint).trim().slice(0, 320)}\n\n`
+      : "";
+
   const sourceNote = hasAttachments
     ? `The learner may have pasted text below and/or attached file(s) (photos of homework, screenshots, or a PDF). Read every attachment carefully (all readable pages of a PDF). Combine what you see in the file(s) with any pasted text. If pasted text is empty, use only the attachment(s).`
     : "";
@@ -17,7 +33,7 @@ function buildPrompt(inputText, hasAttachments) {
     ? `If the "school text" section below is empty, that is intentional: your ONLY source is the file(s) in this message. The lesson title, every chunk, and every quiz question must be grounded in what you read in those attachments — not generic study advice.`
     : "";
 
-  return `You are a learning assistant for a neurodivergent child aged 8-14 with ADHD or dyslexia.
+  return `${peerBlock}${interestBlock}${engagementBlock}You are a learning assistant for a neurodivergent child aged 8-14 with ADHD or dyslexia.
 ${sourceNote ? `${sourceNote}\n\n` : ""}${attachmentOnlyNote ? `${attachmentOnlyNote}\n\n` : ""}
 Rewrite the following school text using:
 - Very short sentences (max 10-12 words each)
@@ -66,15 +82,19 @@ ${inputText}`;
  * @param {string} inputText
  * @param {string} apiKey
  * @param {{ mimeType: string, data: string }[]} [attachments]
+ * @param {{ studyPeer?: boolean; specialInterest?: string; engagementHint?: string }} [persona]
  */
-export async function simplifyText(inputText, apiKey, attachments = []) {
+export async function simplifyText(inputText, apiKey, attachments = [], persona = {}) {
   const hasAttachments = attachments.length > 0;
-  const textPart = { text: buildPrompt(inputText, hasAttachments) };
+  const textPart = { text: buildPrompt(inputText, hasAttachments, persona) };
   const inlineParts = attachments.map((a) => ({
-    inlineData: { mimeType: a.mimeType, data: a.data },
+    inlineData: {
+      mimeType: a.mimeType,
+      data: String(a.data || "").replace(/\s+/g, ""),
+    },
   }));
-  // Instruction first, then media — matches common Gemini multimodal patterns so the model binds to the task before bytes.
-  const parts = [textPart, ...inlineParts];
+  // Put bytes before the long instruction so vision/PDF binding stays tied to the media (Google’s own samples often order image → text).
+  const parts = [...inlineParts, textPart];
 
   // #region agent log
   debugIngest({

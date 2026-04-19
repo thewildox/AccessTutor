@@ -7,7 +7,13 @@ const TOGGLES = [
   { key: "calmMode", label: "Calm look", hint: "Softer colors and shadows" },
 ];
 
-export default function AccessibilityBar({ a11y, toggleA11y, onResetA11y }) {
+export default function AccessibilityBar({
+  a11y,
+  toggleA11y,
+  onResetA11y,
+  companionEnabled = true,
+  onCompanionToggle,
+}) {
   return (
     <nav className="a11y-bar" aria-label="Accessibility options">
       <div className="a11y-bar__chips">
@@ -26,6 +32,17 @@ export default function AccessibilityBar({ a11y, toggleA11y, onResetA11y }) {
             </button>
           );
         })}
+        {typeof onCompanionToggle === "function" && (
+          <button
+            type="button"
+            className={`a11y-chip${companionEnabled ? " a11y-chip--on" : ""}`}
+            onClick={() => onCompanionToggle(!companionEnabled)}
+            aria-pressed={companionEnabled}
+            title="Small calm face during lesson and quiz. Off hides it completely."
+          >
+            Companion: {companionEnabled ? "On" : "Off"}
+          </button>
+        )}
       </div>
       {onResetA11y && (
         <button
