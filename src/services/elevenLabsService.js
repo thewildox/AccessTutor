@@ -3,9 +3,18 @@ const ELEVEN_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 const DEFAULT_MODEL_ID = "eleven_multilingual_v2";
 
 /**
+ * Realtime / streaming voice (Gemini Live, Vapi, etc.) would replace one-shot TTS here for duplex sessions.
+ * This app uses REST TTS + optional Web Audio lip-sync on the returned HTMLAudioElement.
+ *
+ * @param {string} text
+ * @param {string} apiKey
+ * @param {string} voiceId
+ * @param {boolean} [slow]
+ * @param {{ deferPlay?: boolean }} [opts] If deferPlay, audio is returned without calling play() (for Web Audio graph).
  * @returns {Promise<{ audio: HTMLAudioElement | null, error: string | null }>}
  */
-export async function speakText(text, apiKey, voiceId, slow = false) {
+export async function speakText(text, apiKey, voiceId, slow = false, opts = {}) {
+  const { deferPlay = false } = opts;
   if (!apiKey || !text) return { audio: null, error: null };
 
   try {
@@ -43,13 +52,15 @@ export async function speakText(text, apiKey, voiceId, slow = false) {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     if (slow) audio.playbackRate = 0.75;
-    try {
-      await audio.play();
-    } catch {
-      return {
-        audio: null,
-        error: "Playback was blocked. Click Listen again, or check browser sound permissions.",
-      };
+    if (!deferPlay) {
+      try {
+        await audio.play();
+      } catch {
+        return {
+          audio: null,
+          error: "Playback was blocked. Click Listen again, or check browser sound permissions.",
+        };
+      }
     }
     return { audio, error: null };
   } catch (e) {

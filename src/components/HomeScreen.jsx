@@ -1,8 +1,9 @@
-import { useState, useEffect, useId } from "react";
+import { useState, useEffect } from "react";
 import {
   MAX_ATTACHMENT_COUNT,
   MAX_ATTACHMENT_BYTES,
   resolveMimeType,
+  validateAttachmentFile,
 } from "../utils/inlineAttachments";
 
 const SAMPLE_TEXT = `Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to produce oxygen and energy in the form of sugar. This process takes place mainly in the leaves of plants, in cells containing chlorophyll. Chlorophyll is the pigment that makes plants green, and it absorbs light energy from the sun. The plant takes in carbon dioxide through tiny pores called stomata, and water through its roots. Using the energy from light, the plant converts these into glucose and releases oxygen as a byproduct. This glucose is used by the plant for growth, repair, and reproduction.`;
@@ -18,10 +19,13 @@ export default function HomeScreen({
   rememberKeys = false,
   setRememberKeys,
   longInputWarning = false,
+  studyPeer = false,
+  setStudyPeer,
+  specialInterest = "",
+  setSpecialInterest,
 }) {
   const [showKeys, setShowKeys] = useState(false);
   const [filesHint, setFilesHint] = useState(null);
-  const fileInputId = useId();
 
   const canStart = Boolean(inputText.trim()) || attachedFiles.length > 0;
 
@@ -30,14 +34,30 @@ export default function HomeScreen({
     e.target.value = "";
     if (!list?.length || !setAttachedFiles) return;
     const incoming = Array.from(list);
-    const merged = [...attachedFiles, ...incoming];
-    const next = merged.slice(0, MAX_ATTACHMENT_COUNT);
-    setAttachedFiles(next);
-    setFilesHint(
-      merged.length > MAX_ATTACHMENT_COUNT
-        ? `Using the first ${MAX_ATTACHMENT_COUNT} files. Remove files to add different ones.`
-        : null,
-    );
+    const violations = [];
+    const valid = [];
+    for (const file of incoming) {
+      const err = validateAttachmentFile(file);
+      if (err) violations.push(err);
+      else valid.push(file);
+    }
+    if (!valid.length) {
+      setFilesHint(violations[0] || "Could not add those files.");
+      return;
+    }
+    const mergedPreview = [...attachedFiles, ...valid];
+    let hint = null;
+    if (violations.length) {
+      hint =
+        valid.length < incoming.length
+          ? `Added ${valid.length} of ${incoming.length}. ${violations[0]}`
+          : violations[0];
+    }
+    if (mergedPreview.length > MAX_ATTACHMENT_COUNT) {
+      hint = `Using the first ${MAX_ATTACHMENT_COUNT} files. Remove files to add different ones.`;
+    }
+    setFilesHint(hint);
+    setAttachedFiles(mergedPreview.slice(0, MAX_ATTACHMENT_COUNT));
   };
 
   const removeFile = (index) => {
@@ -50,8 +70,8 @@ export default function HomeScreen({
     <div className="fade-up home-stack">
       <header className="hero">
         <h1 className="hero__logo">Focusly</h1>
-        <p className="hero__tagline">Learning, redesigned for focus.</p>
-        <p className="hero__subline">For students who learn differently.</p>
+        <p className="hero__tagline">Hard stuff, split into small steps.</p>
+        <p className="hero__subline">Short chunks, calm voice, and a quiz when you’re ready.</p>
       </header>
 
       <div className="home-settings-row">
@@ -110,6 +130,7 @@ export default function HomeScreen({
               <strong>Listen</strong> on the lesson page and quiz hints use ElevenLabs to speak out loud.
             </p>
           </details>
+
         </div>
       )}
 
@@ -123,28 +144,27 @@ export default function HomeScreen({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Paste something confusing… we'll break it down together."
-          rows={7}
+          rows={9}
         />
         <p className="input-helper">
-          Paste text, or add photos / a PDF of a worksheet — or both.
+          We turn this into short lesson steps (and a quiz). Add text, photos, or a PDF — or both.
         </p>
 
         <div className="attach-row">
-          <input
-            id={fileInputId}
-            type="file"
-            className="attach-input"
-            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
-            multiple
-            onChange={onPickFiles}
-          />
-          <label htmlFor={fileInputId} className="btn btn-ghost btn-full attach-label">
-            Add images or PDF
+          <label className="btn btn-ghost btn-full attach-label attach-label--control">
+            <input
+              type="file"
+              className="attach-input attach-input--overlay"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,application/pdf,.pdf,.heic,.heif"
+              multiple
+              onChange={onPickFiles}
+            />
+            <span className="attach-label__text">Add images or PDF</span>
           </label>
         </div>
         <p className="hint-text">
           Up to {MAX_ATTACHMENT_COUNT} files, {Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))} MB each.
-          PDFs and images are read by Gemini (large PDFs may be slow).
+          JPG, PNG, WebP, GIF, or PDF — read by Gemini. iPhone “live” photos: export as JPEG first (see warning if you pick HEIC).
         </p>
 
         {attachedFiles.length > 0 && (
@@ -173,6 +193,33 @@ export default function HomeScreen({
           <p className="hint-text hint-text--warn">
             Very long text will be trimmed to 32,000 characters for a reliable demo.
           </p>
+        )}
+
+        {setStudyPeer && setSpecialInterest && (
+          <div className="study-persona-inline card card--inline">
+            <p className="field-label">Optional: how the steps sound</p>
+            <label className="remember-keys">
+              <input
+                type="checkbox"
+                checked={studyPeer}
+                onChange={(e) => setStudyPeer(e.target.checked)}
+              />
+              <span>Study peer (“we / us”), not a teacher</span>
+            </label>
+            <label className="field-label" htmlFor="special-interest-main" style={{ marginTop: "0.4rem" }}>
+              Special interest (optional)
+            </label>
+            <input
+              id="special-interest-main"
+              className="field-input"
+              type="text"
+              value={specialInterest}
+              onChange={(e) => setSpecialInterest(e.target.value)}
+              placeholder="For gentle analogies in examples"
+              maxLength={200}
+              autoComplete="off"
+            />
+          </div>
         )}
 
         <button

@@ -41,6 +41,16 @@ export function validateAttachmentFile(file) {
   if (file.size > MAX_ATTACHMENT_BYTES) {
     return `"${file.name}" is too large (max ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))} MB per file).`;
   }
+  const n = file.name.toLowerCase();
+  const t = (file.type || "").toLowerCase();
+  if (
+    t === "image/heic" ||
+    t === "image/heif" ||
+    n.endsWith(".heic") ||
+    n.endsWith(".heif")
+  ) {
+    return `"${file.name}" is HEIC/HEIF (iPhone’s default). Gemini needs JPG or PNG here — export a JPEG from Photos, or set Settings → Camera → Formats → Most Compatible for new photos.`;
+  }
   const mime = resolveMimeType(file);
   if (!mime || !ALLOWED_MIME.has(mime)) {
     return `"${file.name}" is not a supported type. Use JPG, PNG, WebP, GIF, or PDF.`;
@@ -130,7 +140,8 @@ export function fileToInlineAttachment(file) {
         return;
       }
       const mimeType = resolveMimeType(file) || parsed.mimeFromUrl;
-      resolve({ mimeType, data: parsed.data });
+      const data = String(parsed.data).replace(/\s+/g, "");
+      resolve({ mimeType, data });
     };
     reader.onerror = () => {
       // #region agent log

@@ -19,7 +19,14 @@ function optionClass(opt, q, selectedAnswer, isCorrect, keyboardFocus) {
   return "quiz-option quiz-option--dim";
 }
 
-export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceId }) {
+export default function QuizScreen({
+  lessonData,
+  onBack,
+  a11y,
+  elevenKey,
+  voiceId,
+  onAnswerResult,
+}) {
   const questions = lessonData?.questions || [];
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -49,6 +56,7 @@ export default function QuizScreen({ lessonData, onBack, a11y, elevenKey, voiceI
     setSelectedAnswer(opt);
     setIsCorrect(correct);
     setTtsError(null);
+    onAnswerResult?.(correct);
     if (correct) {
       setScore((s) => s + 1);
     } else if (elevenKey && q.hint) {
