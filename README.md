@@ -1,4 +1,4 @@
-# AccessTutor
+# Focusly
 
 > Learning, redesigned for focus.
 
@@ -92,7 +92,7 @@ Edit the `TOGGLES` array in `src/components/AccessibilityBar.jsx`
 6. Click **Quiz Me** — miss one on purpose to show feedback + optional spoken hint
 7. **Backup:** record a 30s screen capture in case Wi‑Fi or billing fails live
 
-**Opening line:** *"Some kids aren't blocked by intelligence. They're blocked by format. AccessTutor changes the format."*
+**Opening line:** *"Some kids aren't blocked by intelligence. They're blocked by format. Focusly changes the format."*
 
 ---
 

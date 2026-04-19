@@ -1,3 +1,5 @@
+import { debugIngest } from "../debugIngest.js";
+
 /** @typedef {{ mimeType: string, data: string }} InlineAttachment */
 
 const ALLOWED_MIME = new Set([
@@ -47,27 +49,102 @@ export function validateAttachmentFile(file) {
 }
 
 /**
+ * readAsDataURL() may include parameters before ";base64," (e.g. charset), which breaks a strict
+ * ^data:([^;]+);base64,(.+)$ regex. Find the base64 payload by marker instead.
+ * @param {string} result
+ * @returns {{ mimeFromUrl: string, data: string } | null}
+ */
+function parseDataUrlBase64(result) {
+  if (typeof result !== "string" || !result.startsWith("data:")) return null;
+  const lower = result.toLowerCase();
+  const marker = ";base64,";
+  const idx = lower.indexOf(marker);
+  if (idx === -1) return null;
+  const meta = result.slice("data:".length, idx);
+  const mimeFromUrl = meta.split(";")[0].trim();
+  const data = result.slice(idx + marker.length);
+  if (!data) return null;
+  return { mimeFromUrl, data };
+}
+
+/**
  * @param {File} file
  * @returns {Promise<InlineAttachment>}
  */
 export function fileToInlineAttachment(file) {
   return new Promise((resolve, reject) => {
+    // #region agent log
+    const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
+    debugIngest({
+      runId: "post-fix",
+      hypothesisId: "H2",
+      location: "inlineAttachments.js:fileToInlineAttachment:entry",
+      message: "read attachment",
+      data: {
+        ext,
+        size: file.size,
+        browserType: file.type || "",
+        resolvedMime: resolveMimeType(file),
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
       if (typeof result !== "string") {
+        // #region agent log
+        debugIngest({
+          runId: "post-fix",
+          hypothesisId: "H1",
+          location: "inlineAttachments.js:reader.onload",
+          message: "result not string",
+          data: { resultType: typeof result },
+          timestamp: Date.now(),
+        });
+        // #endregion
         reject(new Error("Could not read file."));
         return;
       }
-      const m = /^data:([^;]+);base64,(.+)$/.exec(result);
-      if (!m) {
+      const parsed = parseDataUrlBase64(result);
+      const strictLegacy = /^data:([^;]+);base64,(.+)$/.exec(result);
+      // #region agent log
+      debugIngest({
+        runId: "post-fix",
+        hypothesisId: "H1",
+        location: "inlineAttachments.js:reader.onload:dataUrl",
+        message: "data url parse",
+        data: {
+          markerParsed: Boolean(parsed),
+          strictRegexMatched: Boolean(strictLegacy),
+          legacyWouldFail: Boolean(parsed && !strictLegacy),
+          mimeFromUrl: parsed ? parsed.mimeFromUrl : null,
+          head: result.slice(0, 80),
+          base64Len: parsed ? parsed.data.length : 0,
+        },
+        timestamp: Date.now(),
+      });
+      // #endregion
+      if (!parsed) {
         reject(new Error("Could not read file."));
         return;
       }
-      const mimeType = resolveMimeType(file) || m[1];
-      resolve({ mimeType, data: m[2] });
+      const mimeType = resolveMimeType(file) || parsed.mimeFromUrl;
+      resolve({ mimeType, data: parsed.data });
     };
-    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.onerror = () => {
+      // #region agent log
+      debugIngest({
+        runId: "post-fix",
+        hypothesisId: "H1",
+        location: "inlineAttachments.js:reader.onerror",
+        message: "filereader error",
+        data: {},
+        timestamp: Date.now(),
+      });
+      // #endregion
+      reject(new Error("Could not read file."));
+    };
     reader.readAsDataURL(file);
   });
 }

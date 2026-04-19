@@ -49,7 +49,7 @@ export default function HomeScreen({
   return (
     <div className="fade-up home-stack">
       <header className="hero">
-        <h1 className="hero__logo">AccessTutor</h1>
+        <h1 className="hero__logo">Focusly</h1>
         <p className="hero__tagline">Learning, redesigned for focus.</p>
         <p className="hero__subline">For students who learn differently.</p>
       </header>

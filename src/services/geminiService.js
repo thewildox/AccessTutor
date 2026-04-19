@@ -1,3 +1,5 @@
+import { debugIngest } from "../debugIngest.js";
+
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -9,9 +11,14 @@ function buildPrompt(inputText, hasAttachments) {
   const sourceNote = hasAttachments
     ? `The learner may have pasted text below and/or attached file(s) (photos of homework, screenshots, or a PDF). Read every attachment carefully (all readable pages of a PDF). Combine what you see in the file(s) with any pasted text. If pasted text is empty, use only the attachment(s).`
     : "";
+  const attachmentOnly =
+    hasAttachments && typeof inputText === "string" && inputText.trim() === "";
+  const attachmentOnlyNote = attachmentOnly
+    ? `If the "school text" section below is empty, that is intentional: your ONLY source is the file(s) in this message. The lesson title, every chunk, and every quiz question must be grounded in what you read in those attachments — not generic study advice.`
+    : "";
 
   return `You are a learning assistant for a neurodivergent child aged 8-14 with ADHD or dyslexia.
-${sourceNote ? `${sourceNote}\n\n` : ""}
+${sourceNote ? `${sourceNote}\n\n` : ""}${attachmentOnlyNote ? `${attachmentOnlyNote}\n\n` : ""}
 Rewrite the following school text using:
 - Very short sentences (max 10-12 words each)
 - One idea per sentence
@@ -66,17 +73,52 @@ export async function simplifyText(inputText, apiKey, attachments = []) {
   const inlineParts = attachments.map((a) => ({
     inlineData: { mimeType: a.mimeType, data: a.data },
   }));
-  const parts = [...inlineParts, textPart];
+  // Instruction first, then media — matches common Gemini multimodal patterns so the model binds to the task before bytes.
+  const parts = [textPart, ...inlineParts];
+
+  // #region agent log
+  debugIngest({
+    runId: "post-fix",
+    hypothesisId: "H4",
+    location: "geminiService.js:simplifyText:preFetch",
+    message: "payload shape",
+    data: {
+      attachmentCount: attachments.length,
+      mimes: attachments.map((a) => a.mimeType),
+      dataLens: attachments.map((a) => (a.data ? a.data.length : 0)),
+      partsCount: parts.length,
+      textPartLen: inputText.length,
+    },
+    timestamp: Date.now(),
+  });
+  // #endregion
 
   const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts }],
+      contents: [{ role: "user", parts }],
     }),
   });
 
   const data = await res.json();
+
+  // #region agent log
+  debugIngest({
+    runId: "post-fix",
+    hypothesisId: "H3",
+    location: "geminiService.js:simplifyText:postFetch",
+    message: "gemini response meta",
+    data: {
+      ok: res.ok,
+      status: res.status,
+      apiError: data.error?.message || null,
+      candidateCount: data.candidates?.length ?? 0,
+      blockReason: data.promptFeedback?.blockReason || null,
+    },
+    timestamp: Date.now(),
+  });
+  // #endregion
 
   if (!res.ok) {
     throw new Error(data.error?.message || "Gemini API error");

@@ -25,6 +25,7 @@ import {
   mergeA11yPrefs,
   DEFAULT_A11Y,
 } from "./lib/a11yStorage";
+import { debugIngest } from "./debugIngest.js";
 import "./index.css";
 
 const MAX_INPUT_CHARS = 32000;
@@ -123,6 +124,16 @@ export default function App() {
     for (const file of attachedFiles) {
       const attErr = validateAttachmentFile(file);
       if (attErr) {
+        // #region agent log
+        debugIngest({
+          runId: "post-fix",
+          hypothesisId: "H2",
+          location: "App.jsx:handleStart:validateFail",
+          message: "attachment validation failed",
+          data: { fileCount: attachedFiles.length },
+          timestamp: Date.now(),
+        });
+        // #endregion
         setError(attErr);
         return;
       }
@@ -136,10 +147,34 @@ export default function App() {
         inlineParts.push(await fileToInlineAttachment(file));
       }
       const data = await simplifyText(trimmedRaw, geminiKey, inlineParts);
+      // #region agent log
+      debugIngest({
+        runId: "post-fix",
+        hypothesisId: "H5",
+        location: "App.jsx:handleStart:success",
+        message: "lesson generated",
+        data: {
+          attachmentCount: inlineParts.length,
+          chunkCount: data?.chunks?.length ?? 0,
+          titleLen: data?.title ? String(data.title).length : 0,
+        },
+        timestamp: Date.now(),
+      });
+      // #endregion
       setLessonData(data);
       setAttachedFiles([]);
       setView("lesson");
     } catch (e) {
+      // #region agent log
+      debugIngest({
+        runId: "post-fix",
+        hypothesisId: "H6",
+        location: "App.jsx:handleStart:catch",
+        message: "start failed",
+        data: { errSlice: String(e?.message || e).slice(0, 200) },
+        timestamp: Date.now(),
+      });
+      // #endregion
       setError("Something went wrong: " + e.message + ". Check your API key and try again.");
     } finally {
       setIsLoading(false);
