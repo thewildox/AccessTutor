@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import HomeScreen from "./components/HomeScreen";
 import LessonScreen from "./components/LessonScreen";
 import QuizScreen from "./components/QuizScreen";
@@ -85,6 +85,18 @@ export default function App() {
   useEffect(() => {
     saveA11yPrefs(a11y);
   }, [a11y]);
+
+  // Theme tokens must live on <html>: body uses var(--bg)/var(--text) above #root, so .app-root-only classes never reached the page chrome.
+  useLayoutEffect(() => {
+    const el = document.documentElement;
+    el.classList.toggle("large-text", !!a11y.largeText);
+    el.classList.toggle("high-contrast", !!a11y.highContrast);
+    el.classList.toggle("dyslexic-font", !!a11y.dyslexicFont);
+    el.classList.toggle("calm-mode", !!a11y.calmMode);
+    return () => {
+      el.classList.remove("large-text", "high-contrast", "dyslexic-font", "calm-mode");
+    };
+  }, [a11y.largeText, a11y.highContrast, a11y.dyslexicFont, a11y.calmMode]);
 
   useEffect(() => {
     saveCompanionEnabled(companionEnabled);
@@ -227,18 +239,8 @@ export default function App() {
     }
   };
 
-  const rootClasses = [
-    "app-root",
-    a11y.largeText ? "large-text" : "",
-    a11y.highContrast ? "high-contrast" : "",
-    a11y.dyslexicFont ? "dyslexic-font" : "",
-    a11y.calmMode ? "calm-mode" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className={rootClasses}>
+    <div className="app-root">
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
