@@ -99,6 +99,17 @@ export default function HomeScreen({
             Keys are only sent to Google Gemini and ElevenLabs when you use the app. Lesson text and
             attachments go to Gemini when you start a lesson.
           </p>
+          <details className="settings-privacy-help">
+            <summary className="settings-privacy-help__summary">
+              What happens when I use this app?
+            </summary>
+            <p className="hint-text settings-privacy-help__body">
+              When you press <strong>Start Learning</strong>, your words and any files you added are
+              sent to <strong>Google Gemini</strong> so it can build a simple lesson and quiz. Nothing
+              is sent until you press that button. If you add an <strong>ElevenLabs</strong> key,
+              <strong>Listen</strong> on the lesson page and quiz hints use ElevenLabs to speak out loud.
+            </p>
+          </details>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import HomeScreen from "./components/HomeScreen";
 import LessonScreen from "./components/LessonScreen";
 import QuizScreen from "./components/QuizScreen";
@@ -19,6 +19,12 @@ import {
   clearRememberedKeys,
   REMEMBER_KEYS_FLAG,
 } from "./lib/hackathonStorage";
+import {
+  loadA11yPrefs,
+  saveA11yPrefs,
+  mergeA11yPrefs,
+  DEFAULT_A11Y,
+} from "./lib/a11yStorage";
 import "./index.css";
 
 const MAX_INPUT_CHARS = 32000;
@@ -38,13 +44,26 @@ export default function App() {
   const [rememberKeys, setRememberKeys] = useState(
     () => typeof localStorage !== "undefined" && localStorage.getItem(REMEMBER_KEYS_FLAG) === "1"
   );
-  const [a11y, setA11y] = useState({
-    largeText: false,
-    focusMode: true,
-    slowAudio: false,
-    highContrast: false,
-    dyslexicFont: false,
-  });
+  const [a11y, setA11y] = useState(() => mergeA11yPrefs(loadA11yPrefs()));
+  const [routeAnnouncement, setRouteAnnouncement] = useState("");
+  const routeBootRef = useRef(true);
+
+  useEffect(() => {
+    saveA11yPrefs(a11y);
+  }, [a11y]);
+
+  useEffect(() => {
+    if (isLoading) {
+      setRouteAnnouncement("Loading your lesson. Please wait.");
+      return;
+    }
+    const labels = { home: "Home", lesson: "Lesson screen", quiz: "Quiz" };
+    if (routeBootRef.current) {
+      routeBootRef.current = false;
+      return;
+    }
+    setRouteAnnouncement(labels[view] || view);
+  }, [view, isLoading]);
 
   useEffect(() => {
     const saved = readSavedSession();
@@ -73,6 +92,10 @@ export default function App() {
 
   const toggleA11y = (key) => {
     setA11y((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const resetA11y = () => {
+    setA11y({ ...DEFAULT_A11Y });
   };
 
   const leaveLessonToHome = () => {
@@ -128,13 +151,25 @@ export default function App() {
     a11y.largeText ? "large-text" : "",
     a11y.highContrast ? "high-contrast" : "",
     a11y.dyslexicFont ? "dyslexic-font" : "",
+    a11y.calmMode ? "calm-mode" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
     <div className={rootClasses}>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+      <div
+        className="visually-hidden"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {routeAnnouncement}
+      </div>
       <div className="app-container">
+        <main id="main-content">
         {isLoading ? (
           <LoadingState />
         ) : view === "home" ? (
@@ -175,8 +210,9 @@ export default function App() {
             voiceId={voiceId}
           />
         )}
+        </main>
       </div>
-      <AccessibilityBar a11y={a11y} toggleA11y={toggleA11y} />
+      <AccessibilityBar a11y={a11y} toggleA11y={toggleA11y} onResetA11y={resetA11y} />
     </div>
   );
 }

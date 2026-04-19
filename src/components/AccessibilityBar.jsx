@@ -3,27 +3,39 @@ const TOGGLES = [
   { key: "focusMode", label: "Focus Mode", hint: "Recommended for better learning" },
   { key: "slowAudio", label: "Slow Audio", hint: null },
   { key: "highContrast", label: "High Contrast", hint: null },
-  { key: "dyslexicFont", label: "Easy Font", hint: null },
+  { key: "dyslexicFont", label: "Easy Font", hint: "Clearer letters for reading" },
+  { key: "calmMode", label: "Calm look", hint: "Softer colors and shadows" },
 ];
 
-export default function AccessibilityBar({ a11y, toggleA11y }) {
+export default function AccessibilityBar({ a11y, toggleA11y, onResetA11y }) {
   return (
     <nav className="a11y-bar" aria-label="Accessibility options">
-      {TOGGLES.map(({ key, label, hint }) => {
-        const on = a11y[key];
-        return (
-          <button
-            key={key}
-            type="button"
-            className={`a11y-chip${on ? " a11y-chip--on" : ""}`}
-            onClick={() => toggleA11y(key)}
-            aria-pressed={on}
-            title={hint || undefined}
-          >
-            {label}
-          </button>
-        );
-      })}
+      <div className="a11y-bar__chips">
+        {TOGGLES.map(({ key, label, hint }) => {
+          const on = a11y[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`a11y-chip${on ? " a11y-chip--on" : ""}`}
+              onClick={() => toggleA11y(key)}
+              aria-pressed={on}
+              title={hint || undefined}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {onResetA11y && (
+        <button
+          type="button"
+          className="a11y-reset"
+          onClick={onResetA11y}
+        >
+          Reset accessibility
+        </button>
+      )}
     </nav>
   );
 }
